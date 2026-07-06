@@ -29,6 +29,7 @@ export function initLighting() {
   els.gauge = document.getElementById("depth-value");
   els.water = document.getElementById("water-body");
   els.clouds = document.getElementById("clouds");
+  els.scene = document.getElementById("scene");
 
   applyTimeOfDay();
   scheduleMinuteTick();
@@ -70,16 +71,21 @@ export function applyTimeOfDay(date = new Date()) {
   document.dispatchEvent(new CustomEvent("scene:time", { detail: { time } }));
 }
 
+/** Stable viewport height (100lvh via #scene) — doesn't twitch with mobile bars. */
+function stableVH() {
+  return (els.scene && els.scene.offsetHeight) || window.innerHeight;
+}
+
 function positionCelestial(el, x, y) {
   if (!el) return;
   const w = window.innerWidth;
-  const h = window.innerHeight;
+  const h = stableVH();
   // x sweeps 6% → 94% of width; y arcs between 8% (horizon) and 42% height.
   const px = (0.06 + x * 0.88) * w - 45;
   const py = (0.42 - y * 0.34) * h;
   celestial = { el, px, py };
-  // Positioned in the document-anchored #world layer — scrolls away natively.
-  el.style.transform = `translate(${px}px, ${py}px)`;
+  // The sun/moon live in the sky-world: they scroll away like everything else.
+  el.style.transform = `translate(${px}px, ${py - window.scrollY}px)`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -109,7 +115,8 @@ function initScrollDriver() {
   const update = () => {
     ticking = false;
     const doc = document.documentElement;
-    const max = Math.max(1, doc.scrollHeight - window.innerHeight);
+    const vh = stableVH();
+    const max = Math.max(1, doc.scrollHeight - vh);
     const p = clamp(window.scrollY / max, 0, 1);
 
     // Re-read palette colors only when time/weather actually changes —
@@ -139,24 +146,33 @@ function initScrollDriver() {
     els.surface.style.opacity = fadeOut(p, 0.3, 0.6);
     els.mid.style.opacity = fadeOut(p, 0.6, 0.92);
 
-    // Sky, water surface, and rays are all document-anchored now — native
-    // scrolling moves them in perfect sync (no JS = no mobile jitter).
-    // JS only handles the cursor "lean" and depth-based opacity fades.
+    // The sky lives in the WORLD, not on your screen: clouds scroll away at
+    // full speed as you descend; the sun/moon too. Neither follows the
+    // camera. The cursor adds a few pixels of "lean".
     if (els.clouds) {
       els.clouds.style.transform =
-        `translate(${cursorNX * -10}px, ${cursorNY * -6}px)`;
+        `translate(${cursorNX * -10}px, ${-window.scrollY + cursorNY * -6}px)`;
     }
     if (celestial.el) {
       celestial.el.style.transform =
         `translate(${celestial.px + cursorNX * -4}px, ` +
-        `${celestial.py + cursorNY * -2.5}px)`;
+        `${celestial.py - window.scrollY + cursorNY * -2.5}px)`;
     }
 
-    // Water surface: once you're fully submerged it fades away and the
-    // underwater layer stack takes over (same colors — seamless).
-    if (els.water) els.water.style.opacity = fadeOut(p, 0.3, 0.45);
+    // Water surface: the wavy crest sits at the waterline (82% of the
+    // viewport at the top of the page) and rises as you scroll, so you
+    // visibly plunge beneath it. Once fully submerged it fades away and
+    // the underwater layer stack takes over (same colors — seamless).
+    if (els.water) {
+      const waterlineY = Math.max(vh * 0.82 - window.scrollY, -1.2 * vh);
+      els.water.style.transform = `translateY(${waterlineY}px)`;
+      els.water.style.opacity = fadeOut(p, 0.3, 0.45);
+    }
 
-    // Light rays: pour down from the waterline, gone by mid-water.
+    // Light rays: pour down from the waterline itself (aquarium-glass look),
+    // sliding up with the surface as you sink, gone by mid-water.
+    els.rays.style.transform =
+      `translateY(${Math.max(0, vh * 0.82 - window.scrollY)}px)`;
     els.rays.style.opacity = fadeOut(p, 0.28, 0.6);
 
     // Surface shimmer: only at the very top.

@@ -2,7 +2,7 @@
 <html lang="en" data-time="midday" data-weather="PARTLY_CLOUDY">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="description" content="Alexander Pace — Web Development Specialist. A scroll-driven ocean descent portfolio." />
   <!-- Mobile browser UI tint — kept in sync with the water depth by JS -->
   <meta name="theme-color" id="theme-color" content="#4aa8e8" />
@@ -25,18 +25,11 @@
     <div class="scene-layer layer-deep"></div>
     <div class="scene-layer layer-mid"></div>
     <div class="scene-layer layer-surface"></div>
-    <div class="scene-layer layer-sky" id="layer-sky"></div>
-    <div id="shimmer"></div>
-    <div id="floor-glow"></div>
-  </div>
-
-  <!-- Document-anchored world: everything in here scrolls natively with the
-       page (position:absolute in the document), so nothing lags or jitters
-       behind the scroll on mobile. -->
-  <div id="world" aria-hidden="true">
-    <div id="sun" class="celestial"><div class="sun-core"></div></div>
-    <div id="moon" class="celestial"><div class="moon-core"></div></div>
-    <div id="clouds"></div>
+    <div class="scene-layer layer-sky" id="layer-sky">
+      <div id="sun" class="celestial"><div class="sun-core"></div></div>
+      <div id="moon" class="celestial"><div class="moon-core"></div></div>
+      <div id="clouds"></div>
+    </div>
     <!-- Visible water surface: foam + wavy crest + water body you sink beneath -->
     <div id="water-body">
       <div class="wave-crest wave-foam">
@@ -56,12 +49,11 @@
       <div class="ray ray-3"></div>
       <div class="ray ray-4"></div>
     </div>
-    <!-- Sea floor: sand, seagrass, coral, crabs — pinned to the page bottom -->
-    <canvas id="floor-canvas"></canvas>
+    <div id="shimmer"></div>
+    <div id="floor-glow"></div>
+    <!-- Marine life, bubbles, stars -->
+    <canvas id="ocean-canvas"></canvas>
   </div>
-
-  <!-- Free swimmers (fixed overlay): fish, birds, bubbles, deep dwellers -->
-  <canvas id="ocean-canvas"></canvas>
 
   <!-- Depth gauge -->
   <div id="depth-gauge" class="glass-dark" aria-hidden="true">
