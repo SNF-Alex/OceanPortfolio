@@ -130,10 +130,14 @@ function stop() {
 // Setup / world population
 // ─────────────────────────────────────────────────────────────────────────
 
+let isMobile = false;
+
 function resize() {
-  dpr = Math.min(window.devicePixelRatio || 1, 2);
   w = window.innerWidth;
   h = window.innerHeight;
+  isMobile = w < 768;
+  // Phones: cap pixel density lower — the single biggest fill-rate win.
+  dpr = Math.min(window.devicePixelRatio || 1, isMobile ? 1.5 : 2);
   canvas.width = w * dpr;
   canvas.height = h * dpr;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -148,9 +152,11 @@ function populate() {
   const zoneTop = h * 0.95;            // just under the surface
   const zoneBottom = docH - h * 0.32;  // above the sand
 
+  const mob = isMobile ? 0.65 : 1; // lighter populations on phones
+
   // ── Fish: scattered through the whole column, each with its own look ──
   fish = [];
-  const perScreen = night ? 3.5 : 7;
+  const perScreen = (night ? 3.5 : 7) * mob;
   const count = Math.round(clamp(((zoneBottom - zoneTop) / h) * perScreen * density, 8, 42));
   const colors = night ? NIGHT_FISH_COLORS : DAY_FISH_COLORS;
   for (let i = 0; i < count; i++) {
@@ -237,13 +243,13 @@ function populate() {
 
   // ── Bubbles (ambient, screen-space) ──
   if (bubbles.length === 0) {
-    const n = Math.round(16 * density);
+    const n = Math.round(16 * density * mob);
     for (let i = 0; i < n; i++) bubbles.push(makeBubble(true));
   }
 
   // ── Stars ──
   stars = [];
-  for (let i = 0; i < Math.round(90 * density); i++) {
+  for (let i = 0; i < Math.round(90 * density * mob); i++) {
     stars.push({
       x: Math.random() * w,
       y: Math.random() * h * 0.7,
@@ -264,7 +270,7 @@ function populate() {
   };
 
   speckles = [];
-  for (let i = 0; i < Math.round(70 * density); i++) {
+  for (let i = 0; i < Math.round(70 * density * mob); i++) {
     speckles.push({
       x: Math.random() * w,
       frac: Math.random(),
@@ -276,7 +282,7 @@ function populate() {
 
   // ── Seagrass clusters swaying on the dunes ──
   seaweeds = [];
-  for (let i = 0; i < Math.round(7 * density); i++) {
+  for (let i = 0; i < Math.round(7 * density * mob); i++) {
     const x = (0.04 + Math.random() * 0.92) * w;
     const blades = [];
     const bladeCount = 3 + Math.floor(Math.random() * 4);
@@ -781,8 +787,8 @@ function updateDrawFish(f, t, dt, scrollY, waterline, night) {
   ctx.save();
   bodyPath();
   ctx.clip();
-  if (s > 13) {
-    // scale crescents on bigger fish
+  if (s > 13 && !isMobile) {
+    // scale crescents on bigger fish (skipped on phones — invisible anyway)
     ctx.strokeStyle = "rgba(255,255,255,0.12)";
     ctx.lineWidth = 1;
     for (let i = 0; i < 3; i++) {

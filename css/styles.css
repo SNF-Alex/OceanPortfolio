@@ -534,6 +534,20 @@ html[data-time="night"] #moon  { opacity: 1; }
 }
 
 /* ==========================================================================
+   Mobile performance — backdrop blur is the #1 phone GPU cost
+   ========================================================================== */
+
+@media (max-width: 640px) {
+  .glass,
+  .glass-dark {
+    backdrop-filter: blur(7px);
+    -webkit-backdrop-filter: blur(7px);
+  }
+  .cloud .puff { filter: none; }   /* per-puff blur is wasted at phone size */
+  .ray-2, .ray-4 { display: none; } /* two rays read fine on a narrow screen */
+}
+
+/* ==========================================================================
    Reduced motion — everything settles into a calm still scene
    ========================================================================== */
 

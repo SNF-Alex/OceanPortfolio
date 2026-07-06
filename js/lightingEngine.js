@@ -102,12 +102,36 @@ export function getAppliedWeather() {
 
 function initScrollDriver() {
   let ticking = false;
+  let paletteKey = "";
+  let palette = { sky: "#4aa8e8", surface: "#1e7fb8", mid: "#0a4a78", deep: "#041f38", glow: 0 };
+  const themeMeta = document.getElementById("theme-color");
 
   const update = () => {
     ticking = false;
     const doc = document.documentElement;
     const max = Math.max(1, doc.scrollHeight - window.innerHeight);
     const p = clamp(window.scrollY / max, 0, 1);
+
+    // Re-read palette colors only when time/weather actually changes —
+    // getComputedStyle on every scroll frame is a mobile performance tax.
+    const key = `${doc.dataset.time}|${doc.dataset.weather}`;
+    if (key !== paletteKey) {
+      paletteKey = key;
+      const cs = getComputedStyle(doc);
+      palette = {
+        sky: cs.getPropertyValue("--sky-top").trim(),
+        surface: cs.getPropertyValue("--surface-top").trim(),
+        mid: cs.getPropertyValue("--mid-top").trim(),
+        deep: cs.getPropertyValue("--deep-top").trim(),
+        glow: parseFloat(cs.getPropertyValue("--floor-glow-opacity")) || 0,
+      };
+    }
+
+    // Tint the mobile browser UI (address bar) to match the current depth,
+    // so the "sky" doesn't linger at the top of the phone screen underwater.
+    const uiColor = p < 0.12 ? palette.sky : p < 0.4 ? palette.surface
+      : p < 0.7 ? palette.mid : palette.deep;
+    if (themeMeta && themeMeta.content !== uiColor) themeMeta.content = uiColor;
 
     // Crossfade stacked layers (deep is the base and always visible):
     // sky fades out over 0 → 0.30, surface over 0.30 → 0.60, mid over 0.60 → 0.92.
@@ -149,10 +173,8 @@ function initScrollDriver() {
     // Surface shimmer: only at the very top.
     els.shimmer.style.opacity = fadeOut(p, 0.0, 0.18);
 
-    // Sea-floor glow: appears near the bottom, strength set by time (CSS var).
-    const glowVar = getComputedStyle(document.documentElement)
-      .getPropertyValue("--floor-glow-opacity");
-    els.floorGlow.style.opacity = fadeIn(p, 0.72, 0.95) * (parseFloat(glowVar) || 0);
+    // Sea-floor glow: appears near the bottom, strength set by time (cached).
+    els.floorGlow.style.opacity = fadeIn(p, 0.72, 0.95) * palette.glow;
 
     // Depth gauge: 0 → 300 ft.
     if (els.gauge) els.gauge.textContent = `${Math.round(p * 300)} ft`;
