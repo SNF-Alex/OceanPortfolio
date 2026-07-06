@@ -1,0 +1,84 @@
+{
+  "meta": {
+    "source": "https://alexpaces.com/",
+    "extracted": "2026-07-02"
+  },
+  "identity": {
+    "name": "Alexander Pace",
+    "roles": ["Web Development Specialist", "Problem Solver", "UI/UX Designer"],
+    "location": "Pinellas County, FL",
+    "profileImage": "assets/ProfilePic.jpg",
+    "profileImageRemote": "https://alexpaces.com/assets/ProfilePic.jpg"
+  },
+  "hero": {
+    "greeting": "Hi, I'm Alexander Pace",
+    "summary": "21-year-old web developer in Pinellas County, FL, pursuing a career in web development — applying HTML, CSS, and JavaScript to real-world projects while learning fast in an evolving field."
+  },
+  "about": [
+    "Aspiring web developer focused on sleek, user-friendly websites — always learning, always building, and bringing fresh ideas and energy to every project.",
+    "Dedicated and hardworking, I approach every challenge with determination and a willingness to learn. I thrive where I can grow my skills, take on new responsibilities, and deliver my best work."
+  ],
+  "skills": {
+    "Frontend Development": ["HTML", "CSS", "JavaScript", "TypeScript", "React", "Python", "Data Visualization with Python"],
+    "Backend Development": ["Node.js", "Express", "Python", "PostgreSQL", "NeonDB", "REST APIs"],
+    "Tools & Other": ["Git", "GitHub", "VS Code", "Docker", "AWS"]
+  },
+  "projects": [
+    {
+      "title": "JunePoint",
+      "description": "Business website with a modern, responsive design and an optimized user experience.",
+      "tech": ["HTML", "CSS", "JavaScript"],
+      "link": "https://junepoint.com/",
+      "image": "assets/junepoint-preview2.PNG",
+      "imageRemote": "https://alexpaces.com/assets/junepoint-preview2.PNG"
+    },
+    {
+      "title": "JPA Contractors",
+      "description": "Construction company website with a portfolio showcase, service listings, and contact integration.",
+      "tech": ["Web Design", "Responsive", "UI/UX"],
+      "link": "https://jpacontractors.com/",
+      "image": "assets/jpa-preview2.jpg",
+      "imageRemote": "https://alexpaces.com/assets/jpa-preview2.jpg"
+    },
+    {
+      "title": "ICO Emergency",
+      "description": "Emergency services website prioritizing critical information, mobile optimization, and fast load times.",
+      "tech": ["Web Development", "Performance", "Accessibility"],
+      "link": "https://icoemergency.com/",
+      "image": "assets/ico-emergency-preview.PNG",
+      "imageRemote": "https://alexpaces.com/assets/ico-emergency-preview.PNG"
+    },
+    {
+      "title": "Epic Clicker: Coinrise",
+      "description": "Idle clicker game with upgrades, achievements, and progression systems.",
+      "tech": ["JavaScript", "Game Development"],
+      "link": "https://alexpaces.com/Games/clicker.html",
+      "image": "assets/clicker-preview.PNG",
+      "imageRemote": "https://alexpaces.com/assets/clicker-preview.PNG"
+    },
+    {
+      "title": "Pong Classic",
+      "description": "Classic Pong built with HTML Canvas — AI opponent, smooth gameplay, keyboard controls.",
+      "tech": ["HTML Canvas", "JavaScript"],
+      "link": "https://alexpaces.com/Games/pong.html",
+      "image": "assets/pong-preview.PNG",
+      "imageRemote": "https://alexpaces.com/assets/pong-preview.PNG"
+    }
+  ],
+  "certifications": [
+    {
+      "title": "Professional Certification",
+      "detail": "Verified Achievement",
+      "year": "2024",
+      "image": "assets/Cert.jpg",
+      "imageRemote": "https://alexpaces.com/assets/Cert.jpg"
+    }
+  ],
+  "contact": {
+    "intro": "Open to new opportunities and interesting projects. Questions — or just a hello — are always welcome.",
+    "email": "aep2cool@gmail.com",
+    "location": "Pinellas County, FL",
+    "github": "https://github.com/SNF-Alex",
+    "linkedin": "https://www.linkedin.com/in/alexander-pace-0648b6270"
+  }
+}

@@ -1,0 +1,546 @@
+/* ==========================================================================
+   OCEAN DESCENT — styles.css
+   All scene coloring is driven by CSS variables that change with
+   [data-time] (morning / midday / evening / night) and
+   [data-weather] (CLEAR / PARTLY_CLOUDY / CLOUDY) on <html>.
+   Animations use ONLY transform and opacity.
+   ========================================================================== */
+
+/* ---------- Time-of-day palettes ---------- */
+
+html {
+  /* defaults (midday) */
+  --sky-top: #4aa8e8;
+  --sky-bottom: #9ed7f2;
+  --surface-top: #1e7fb8;
+  --surface-bottom: #0d5e93;
+  --mid-top: #0a4a78;
+  --mid-bottom: #062f52;
+  --deep-top: #041f38;
+  --deep-bottom: #010a14;
+  --sun-color: #fff3b0;
+  --sun-glow: rgba(255, 240, 170, 0.55);
+  --ray-color: rgba(255, 255, 230, 0.24);
+  --cloud-color: rgba(255, 255, 255, 0.9);
+  --accent: #67e8f9;
+  --floor-glow-opacity: 0;
+  --weather-dim: 1;        /* multiplies sun / ray strength */
+  --cloud-extra-opacity: 1;
+}
+
+html[data-time="morning"] {
+  --sky-top: #f7b267;
+  --sky-bottom: #f4845f;
+  --surface-top: #2e86ab;
+  --surface-bottom: #135e83;
+  --mid-top: #0d4a72;
+  --mid-bottom: #072f4e;
+  --deep-top: #041f38;
+  --deep-bottom: #010a14;
+  --sun-color: #ffd98e;
+  --sun-glow: rgba(255, 200, 120, 0.6);
+  --ray-color: rgba(255, 220, 170, 0.24);
+}
+
+html[data-time="evening"] {
+  --sky-top: #7b2d5e;
+  --sky-bottom: #f26a4b;
+  --surface-top: #24537d;
+  --surface-bottom: #123a5e;
+  --mid-top: #0a3354;
+  --mid-bottom: #05213c;
+  --deep-top: #031729;
+  --deep-bottom: #010810;
+  --sun-color: #ff9e5e;
+  --sun-glow: rgba(255, 130, 80, 0.55);
+  --ray-color: rgba(255, 170, 120, 0.19);
+  --cloud-color: rgba(255, 214, 190, 0.85);
+}
+
+html[data-time="night"] {
+  --sky-top: #0b1026;
+  --sky-bottom: #1b2a4a;
+  --surface-top: #0c2a44;
+  --surface-bottom: #071e33;
+  --mid-top: #051a2e;
+  --mid-bottom: #031222;
+  --deep-top: #020b16;
+  --deep-bottom: #000205;
+  --sun-color: #e6eefc;                 /* moon */
+  --sun-glow: rgba(210, 225, 255, 0.35);
+  --ray-color: rgba(190, 215, 255, 0.08);
+  --cloud-color: rgba(190, 205, 235, 0.35);
+  --floor-glow-opacity: 0.5;            /* bioluminescent floor glow */
+}
+
+/* ---------- Weather modifiers ---------- */
+
+html[data-weather="CLEAR"]         { --weather-dim: 1;    --cloud-extra-opacity: 0.8; }
+html[data-weather="PARTLY_CLOUDY"] { --weather-dim: 0.8;  --cloud-extra-opacity: 1; }
+html[data-weather="CLOUDY"]        { --weather-dim: 0.45; --cloud-extra-opacity: 1; }
+
+/* ==========================================================================
+   Base
+   ========================================================================== */
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--deep-bottom); /* backstop while layers load */
+  color: #fff;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  overflow-x: hidden;
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  z-index: 100;
+  background: #06263f;
+  color: #fff;
+  padding: 0.6rem 1rem;
+  border-radius: 0.5rem;
+}
+.skip-link:focus {
+  left: 0.75rem;
+  top: 0.75rem;
+}
+
+:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ==========================================================================
+   Scene layers (fixed, crossfaded by JS via opacity)
+   ========================================================================== */
+
+#scene {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.scene-layer {
+  position: absolute;
+  inset: 0;
+  will-change: opacity;
+  transition: opacity 0.15s linear;
+}
+
+.layer-sky     { background: linear-gradient(to bottom, var(--sky-top), var(--sky-bottom)); }
+.layer-surface { background: linear-gradient(to bottom, var(--surface-top), var(--surface-bottom)); }
+.layer-mid     { background: linear-gradient(to bottom, var(--mid-top), var(--mid-bottom)); }
+.layer-deep    { background: linear-gradient(to bottom, var(--deep-top), var(--deep-bottom)); }
+
+/* Palette changes (e.g. weather arriving) fade gently */
+.layer-sky, .layer-surface, .layer-mid, .layer-deep {
+  transition: opacity 0.15s linear, background 1.5s ease;
+}
+
+/* ---------- Sun & Moon ---------- */
+
+.celestial {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 90px;
+  height: 90px;
+  will-change: transform, opacity;
+  transition: opacity 1s ease;
+}
+
+.sun-core {
+  width: 100%;
+  height: 100%;
+  border-radius: 9999px;
+  background: radial-gradient(circle at 35% 35%, #fffde8, var(--sun-color) 55%, transparent 72%);
+  box-shadow: 0 0 60px 30px var(--sun-glow);
+  opacity: calc(1 * var(--weather-dim));
+  transition: opacity 1.5s ease;
+}
+
+.moon-core {
+  width: 72%;
+  height: 72%;
+  margin: 14%;
+  border-radius: 9999px;
+  background: radial-gradient(circle at 38% 35%, #ffffff, #cfd9ee 60%, #9fb0d0);
+  box-shadow: 0 0 40px 18px var(--sun-glow);
+}
+/* crater hints */
+.moon-core::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background:
+    radial-gradient(circle at 62% 30%, rgba(130, 148, 182, 0.55) 0 8%, transparent 9%),
+    radial-gradient(circle at 40% 60%, rgba(130, 148, 182, 0.45) 0 6%, transparent 7%),
+    radial-gradient(circle at 70% 65%, rgba(130, 148, 182, 0.4) 0 5%, transparent 6%);
+}
+
+#sun, #moon { opacity: 0; }
+html[data-time="morning"] #sun,
+html[data-time="midday"] #sun,
+html[data-time="evening"] #sun { opacity: 1; }
+html[data-time="night"] #moon  { opacity: 1; }
+
+/* ---------- Clouds (pure CSS puffs, drifting via transform) ---------- */
+
+#clouds {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
+}
+
+.cloud {
+  position: absolute;
+  will-change: transform;
+  animation: drift linear infinite;
+  opacity: calc(var(--cloud-o, 0.8) * var(--cloud-extra-opacity));
+  transition: opacity 1.5s ease;
+}
+
+.cloud .puff {
+  position: absolute;
+  border-radius: 9999px;
+  background: var(--cloud-color);
+  filter: blur(1px);
+  transition: background 1.5s ease;
+}
+
+@keyframes drift {
+  from { transform: translateX(-30vw); }
+  to   { transform: translateX(130vw); }
+}
+
+/* ---------- Water surface (wavy crest + body you sink beneath) ---------- */
+
+#water-body {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 230vh;               /* tall enough to always cover the viewport */
+  will-change: transform, opacity;
+  transition: opacity 0.15s linear;
+}
+
+.water-fill {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    var(--surface-top),
+    var(--surface-bottom) 45%,
+    var(--mid-top)
+  );
+  transition: background 1.5s ease;
+}
+
+.wave-crest {
+  position: absolute;
+  left: 0;
+  display: flex;
+  width: 200%;
+  height: 40px;
+  will-change: transform;
+  animation: waveSlide linear infinite;
+}
+
+.wave-crest svg {
+  width: 50%;
+  height: 100%;
+  flex: none;
+}
+
+/* white foam line peeking above the main crest, drifting the other way */
+.wave-foam {
+  top: -45px;
+  animation-duration: 13s;
+  animation-direction: reverse;
+  opacity: 0.5;
+}
+.wave-foam svg { fill: #ffffff; }
+
+.wave-main {
+  top: -37px;
+  animation-duration: 9s;
+}
+.wave-main svg {
+  fill: var(--surface-top);
+  transition: fill 1.5s ease;
+}
+
+/* Light pouring through the surface — bright band just under the crest,
+   like looking through aquarium glass at the waterline. */
+.water-fill::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 150px;
+  background: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, calc(0.38 * var(--weather-dim))),
+    rgba(255, 255, 255, calc(0.12 * var(--weather-dim))) 45%,
+    transparent
+  );
+}
+
+@keyframes waveSlide {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+/* ---------- Underwater light rays (gradient fakes) ---------- */
+
+/* Rays begin exactly at the container's top edge — JS translates that edge
+   to the waterline, so beams start AT the surface, never in the sky. */
+#rays {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -20%;
+  right: -20%;
+  will-change: opacity, transform;
+  transition: opacity 0.15s linear;
+}
+
+.ray {
+  position: absolute;
+  top: 0;
+  height: 130%;
+  transform-origin: top center;
+  background: linear-gradient(to bottom, var(--ray-color), transparent 75%);
+  transform: skewX(-14deg);
+  opacity: calc(0.9 * var(--weather-dim));
+  will-change: opacity;
+  animation: rayShimmer 7s ease-in-out infinite;
+}
+
+.ray-1 { left: 18%; width: 70px;  animation-delay: 0s; }
+.ray-2 { left: 34%; width: 130px; animation-delay: -2.2s; }
+.ray-3 { left: 55%; width: 90px;  animation-delay: -4.1s; }
+.ray-4 { left: 74%; width: 150px; animation-delay: -1.3s; }
+
+@keyframes rayShimmer {
+  0%, 100% { opacity: calc(0.55 * var(--weather-dim)); }
+  50%      { opacity: calc(1 * var(--weather-dim)); }
+}
+
+/* ---------- Surface shimmer ---------- */
+
+#shimmer {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 18% at 30% 8%, rgba(255, 255, 255, 0.14), transparent 70%),
+    radial-gradient(ellipse 50% 14% at 70% 5%, rgba(255, 255, 255, 0.1), transparent 70%);
+  animation: shimmerPulse 6s ease-in-out infinite;
+  will-change: opacity;
+  transition: opacity 0.15s linear;
+}
+
+@keyframes shimmerPulse {
+  0%, 100% { opacity: 0.6; }
+  50%      { opacity: 1; }
+}
+
+/* ---------- Sea-floor glow (night bioluminescence) ---------- */
+
+#floor-glow {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 45% 20% at 25% 96%, rgba(64, 224, 208, 0.22), transparent 70%),
+    radial-gradient(ellipse 35% 16% at 72% 98%, rgba(80, 180, 255, 0.16), transparent 70%);
+  opacity: 0;
+  will-change: opacity;
+  transition: opacity 0.15s linear;
+}
+
+/* ---------- Canvas ---------- */
+
+#ocean-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* ==========================================================================
+   UI components
+   ========================================================================== */
+
+.glass {
+  background: rgba(8, 30, 52, 0.55);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 8px 32px rgba(0, 10, 25, 0.35);
+}
+
+.glass-dark {
+  background: rgba(4, 18, 34, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 32px rgba(0, 10, 25, 0.45);
+}
+
+.section-title {
+  font-size: clamp(1.6rem, 4vw, 2.4rem);
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 2px 12px rgba(0, 10, 25, 0.6);
+}
+
+.section-sub {
+  margin-top: 0.35rem;
+  font-size: 0.85rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+  text-shadow: 0 1px 8px rgba(0, 10, 25, 0.8);
+}
+
+.btn-primary,
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;               /* touch-friendly */
+  padding: 0.65rem 1.4rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+  will-change: transform;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #22d3ee, #0284c7);
+  color: #04121f;
+}
+
+.btn-ghost {
+  border: 1.5px solid rgba(255, 255, 255, 0.5);
+  color: #fff;
+}
+
+.btn-primary:hover, .btn-ghost:hover { transform: translateY(-2px); }
+.btn-primary:active, .btn-ghost:active { transform: translateY(0); }
+
+.nav-link {
+  position: relative;
+  transition: opacity 0.2s ease;
+}
+.nav-link:hover { opacity: 0.7; }
+
+/* ---------- Cards ---------- */
+
+.card {
+  border-radius: 1.5rem;
+  overflow: hidden;
+  transition: transform 0.25s ease, opacity 0.25s ease;
+  will-change: transform;
+}
+.card:hover { transform: translateY(-5px); }
+
+.card img {
+  width: 100%;
+  height: 11rem;
+  object-fit: cover;
+  display: block;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.tech-chip {
+  display: inline-block;
+  padding: 0.2rem 0.7rem;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #a5f3fc;
+  background: rgba(34, 211, 238, 0.12);
+  border: 1px solid rgba(34, 211, 238, 0.3);
+}
+
+.contact-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 48px;
+  padding: 0.7rem 1rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 0.9rem;
+  transition: transform 0.2s ease;
+  word-break: break-word;
+}
+.contact-item:hover { transform: translateY(-2px); }
+
+/* ---------- Depth gauge ---------- */
+
+#depth-gauge {
+  position: fixed;
+  right: 0.9rem;
+  bottom: 0.9rem;
+  z-index: 30;
+  padding: 0.35rem 0.8rem;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #a5f3fc;
+}
+
+/* ---------- Scroll hint ---------- */
+
+.scroll-hint {
+  position: absolute;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+}
+
+@keyframes bob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(6px); }
+}
+.animate-bob { animation: bob 1.8s ease-in-out infinite; }
+
+/* ---------- Scroll reveal (opacity + transform only) ---------- */
+
+.reveal {
+  opacity: 0;
+  transform: translateY(26px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+  will-change: transform, opacity;
+}
+.reveal.revealed {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ==========================================================================
+   Reduced motion — everything settles into a calm still scene
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .cloud, .ray, #shimmer, .animate-bob, .wave-crest { animation: none !important; }
+  .reveal { opacity: 1; transform: none; transition: none; }
+  .card:hover, .btn-primary:hover, .btn-ghost:hover, .contact-item:hover { transform: none; }
+  .scene-layer, #rays, #floor-glow { transition: none; }
+}
