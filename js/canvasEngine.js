@@ -30,6 +30,10 @@ const SAND_COLORS = {
 };
 
 let canvas, ctx, w, h, dpr;
+let floorCanvas, fctx;            // document-anchored sea-floor canvas
+let floorH = 300;                 // its height in CSS px
+let waterTop = 0;                 // waterline's document Y (from #water-body)
+let frameCount = 0;
 let docH = 0;                     // full scrollable page height (world height)
 let depth = 0;                    // 0 surface → 1 sea floor
 let timeOfDay = "midday";
@@ -59,13 +63,19 @@ let speckles = [];
 export function initCanvasEngine(el) {
   canvas = el;
   ctx = canvas.getContext("2d");
+  floorCanvas = document.getElementById("floor-canvas");
+  if (floorCanvas) fctx = floorCanvas.getContext("2d");
   reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   resize();
   window.addEventListener("resize", () => {
     const ow = w, oh = h;
     resize();
-    rescaleWorld(ow, oh, document.documentElement.scrollHeight);
+    // Mobile URL bars fire small height-only resizes constantly while
+    // scrolling — never rebuild or rescale the world for those.
+    if (w !== ow || Math.abs(h - oh) > 150) {
+      rescaleWorld(ow, oh, document.documentElement.scrollHeight);
+    }
     if (reducedMotion) drawFrame(0);
   });
   // Layout settles once images/content load — stretch the world, don't rebuild.
@@ -141,10 +151,22 @@ function resize() {
   canvas.width = w * dpr;
   canvas.height = h * dpr;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  resizeFloorCanvas();
+}
+
+function resizeFloorCanvas() {
+  if (!floorCanvas) return;
+  floorH = 300; // tall enough for dunes (~90px) + seagrass + glow headroom
+  floorCanvas.width = w * dpr;
+  floorCanvas.height = floorH * dpr;
+  floorCanvas.style.height = `${floorH}px`;
+  fctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 
 function populate() {
   docH = Math.max(document.documentElement.scrollHeight, h * 2);
+  const waterEl = document.getElementById("water-body");
+  waterTop = waterEl ? waterEl.offsetTop : h * 0.82;
   const density = clamp(w / 1200, 0.5, 1.3);
   const night = timeOfDay === "night";
 
@@ -339,6 +361,8 @@ function rescaleWorld(oldW, oldH, newDocH) {
   const rh = oldH > 0 ? h / oldH : 1;
   const rd = docH > 0 ? newDocH / docH : 1;
   docH = Math.max(newDocH, h * 2);
+  const waterEl = document.getElementById("water-body");
+  if (waterEl) waterTop = waterEl.offsetTop;
 
   for (const f of fish) { f.x *= rx; f.worldY *= rd; f.homeY *= rd; f.targetY *= rd; }
   for (const a of anglers) { a.x *= rx; a.worldY *= rd; }
@@ -393,12 +417,14 @@ function drawFrame(t, dt = 0) {
 
   // Keep the world sized to the page (content/images can change height).
   // Rescale in place — a full repopulate would teleport every creature.
-  const liveDocH = document.documentElement.scrollHeight;
-  if (Math.abs(liveDocH - docH) > 8) rescaleWorld(w, h, liveDocH);
+  // Checked every ~32 frames: scrollHeight reads can force layout on mobile.
+  if ((frameCount++ & 31) === 0) {
+    const liveDocH = document.documentElement.scrollHeight;
+    if (Math.abs(liveDocH - docH) > 8) rescaleWorld(w, h, liveDocH);
+  }
 
   const scrollY = window.scrollY;
-  const waterline = h * 0.82 - scrollY + 10;      // water surface on screen
-  const floorScreen = docH - scrollY;             // page bottom on screen
+  const waterline = waterTop - scrollY + 10;      // water surface on screen
   const night = timeOfDay === "night";
   const speedFactor = timeOfDay === "evening" ? 0.55 : night ? 0.75 : 1;
   const sdt = dt * speedFactor;
@@ -407,14 +433,19 @@ function drawFrame(t, dt = 0) {
   for (const bd of birds) updateDrawBird(bd, t, dt, waterline, scrollY);
   updateDrawWhale(t, dt, scrollY, waterline); // far background — behind everything
 
-  // Sea floor stack (only when it's near the viewport)
-  if (floorScreen < h + 260) {
-    drawSand(floorScreen);
-    for (const s of seaweeds) if (!s.front) drawSeaweed(s, t, floorScreen);
-    for (const c of corals) if (!c.front) drawCoral(c, t, floorScreen);
-    for (const s of seaweeds) if (s.front) drawSeaweed(s, t, floorScreen);
-    for (const c of corals) if (c.front) drawCoral(c, t, floorScreen);
-    for (const c of crabs) updateDrawCrab(c, t, sdt, night, floorScreen);
+  // Sea floor pass — its own document-anchored canvas, so the sand scrolls
+  // natively with the page (zero jitter). Local coords: bottom = page bottom.
+  if (fctx && scrollY + h > docH - floorH - 80) {
+    const mainCtx = ctx;
+    ctx = fctx;
+    ctx.clearRect(0, 0, w, floorH);
+    drawSand(floorH);
+    for (const s of seaweeds) if (!s.front) drawSeaweed(s, t, floorH);
+    for (const c of corals) if (!c.front) drawCoral(c, t, floorH);
+    for (const s of seaweeds) if (s.front) drawSeaweed(s, t, floorH);
+    for (const c of corals) if (c.front) drawCoral(c, t, floorH);
+    for (const c of crabs) updateDrawCrab(c, t, sdt, night, floorH);
+    ctx = mainCtx;
   }
 
   for (const b of bubbles) updateDrawBubble(b, dt, waterline);
@@ -455,8 +486,8 @@ function drawSand(floorScreen) {
 
   for (const s of speckles) {
     const top = duneY(duneFront, s.x, floorScreen);
-    if (top > h) continue;
-    const y = top + 5 + s.frac * Math.max(0, Math.min(h, floorScreen) - top - 8);
+    if (top > floorScreen) continue;
+    const y = top + 5 + s.frac * Math.max(0, floorScreen - top - 8);
     ctx.globalAlpha = s.a;
     ctx.fillStyle = s.light ? "#f5e9cf" : "#241c10";
     ctx.beginPath();
@@ -469,10 +500,9 @@ function drawSand(floorScreen) {
 function drawDune(d, crestColor, baseColor, alpha, floorScreen) {
   const step = Math.max(14, w / 70);
   const top = floorScreen - d.base - d.a1 - d.a2;
-  if (top > h) return;
 
   ctx.globalAlpha = alpha;
-  const grad = ctx.createLinearGradient(0, top, 0, Math.min(floorScreen, h) + 40);
+  const grad = ctx.createLinearGradient(0, top, 0, floorScreen + 40);
   grad.addColorStop(0, crestColor);
   grad.addColorStop(0.55, baseColor);
   grad.addColorStop(1, shade(baseColor, -20));
@@ -481,8 +511,8 @@ function drawDune(d, crestColor, baseColor, alpha, floorScreen) {
   ctx.beginPath();
   ctx.moveTo(0, duneY(d, 0, floorScreen));
   for (let x = step; x <= w + step; x += step) ctx.lineTo(x, duneY(d, x, floorScreen));
-  ctx.lineTo(w, h + 2);
-  ctx.lineTo(0, h + 2);
+  ctx.lineTo(w, floorScreen + 2);
+  ctx.lineTo(0, floorScreen + 2);
   ctx.closePath();
   ctx.fill();
 
@@ -500,7 +530,7 @@ function drawDune(d, crestColor, baseColor, alpha, floorScreen) {
 function drawSeaweed(sw, t, floorScreen) {
   const d = sw.front ? duneFront : duneBack;
   const baseY = duneY(d, sw.x, floorScreen) + 2;
-  if (baseY > h + 60 || baseY < -80) return;
+  if (baseY > floorScreen + 60 || baseY < -80) return;
 
   const night = timeOfDay === "night";
   ctx.lineCap = "round";
@@ -527,7 +557,7 @@ function drawSeaweed(sw, t, floorScreen) {
 function drawCoral(c, t, floorScreen) {
   const d = c.front ? duneFront : duneBack;
   const baseY = duneY(d, c.x, floorScreen) + 3;
-  if (baseY > h + 60 || baseY < -80) return;
+  if (baseY > floorScreen + 60 || baseY < -80) return;
 
   const night = timeOfDay === "night";
   const color = night ? shade(c.color, -70) : c.color;
@@ -1110,7 +1140,7 @@ function updateDrawCrab(c, t, dt, night, floorScreen) {
   if (c.x < c.baseX - c.patrol) { c.x = c.baseX - c.patrol; c.vx = Math.abs(c.vx); }
 
   const y = duneY(duneFront, c.x, floorScreen) - c.size * 0.45;
-  if (y > h + 60 || y < -60) return;
+  if (y > floorScreen + 60 || y < -60) return;
 
   const legLift = Math.sin(t / 200 + c.phase) * 2.2;
   const crabColor = night ? "#b35c33" : "#d9764a";

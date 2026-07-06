@@ -86,6 +86,7 @@ html[data-weather="CLOUDY"]        { --weather-dim: 0.45; --cloud-extra-opacity:
 html { scroll-behavior: smooth; }
 
 body {
+  position: relative;             /* containing block for the #world layer */
   background: var(--deep-bottom); /* backstop while layers load */
   color: #fff;
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
@@ -119,6 +120,16 @@ body {
 
 #scene {
   position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Document-anchored world: scrolls natively with the page — zero JS lag.
+   Painted after #scene (same z-index), so it sits above the gradients. */
+#world {
+  position: absolute;
   inset: 0;
   z-index: -1;
   overflow: hidden;
@@ -194,7 +205,10 @@ html[data-time="night"] #moon  { opacity: 1; }
 
 #clouds {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 70vh;                /* the sky band at the top of the document */
   will-change: transform;
 }
 
@@ -223,11 +237,11 @@ html[data-time="night"] #moon  { opacity: 1; }
 
 #water-body {
   position: absolute;
-  top: 0;
+  top: 82vh;                   /* the waterline — anchored in the document */
   left: 0;
-  width: 100%;
-  height: 230vh;               /* tall enough to always cover the viewport */
-  will-change: transform, opacity;
+  right: 0;
+  bottom: 0;                   /* water fills everything below the surface */
+  will-change: opacity;
   transition: opacity 0.15s linear;
 }
 
@@ -301,15 +315,15 @@ html[data-time="night"] #moon  { opacity: 1; }
 
 /* ---------- Underwater light rays (gradient fakes) ---------- */
 
-/* Rays begin exactly at the container's top edge — JS translates that edge
-   to the waterline, so beams start AT the surface, never in the sky. */
+/* Rays are document-anchored at the waterline — beams start AT the surface
+   and scroll away natively with the page. */
 #rays {
   position: absolute;
-  top: 0;
-  bottom: 0;
+  top: 82vh;
+  height: 260vh;
   left: -20%;
   right: -20%;
-  will-change: opacity, transform;
+  will-change: opacity;
   transition: opacity 0.15s linear;
 }
 
@@ -366,13 +380,25 @@ html[data-time="night"] #moon  { opacity: 1; }
   transition: opacity 0.15s linear;
 }
 
-/* ---------- Canvas ---------- */
+/* ---------- Canvases ---------- */
 
+/* Free swimmers — fixed overlay (autonomous movers, lag-invisible) */
 #ocean-canvas {
-  position: absolute;
+  position: fixed;
   inset: 0;
+  z-index: -1;
   width: 100%;
   height: 100%;
+  pointer-events: none;
+}
+
+/* Sea floor — anchored to the very bottom of the document */
+#floor-canvas {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 300px;               /* actual height set by JS */
 }
 
 /* ==========================================================================
