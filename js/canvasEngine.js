@@ -30,6 +30,7 @@ const SAND_COLORS = {
 };
 
 let canvas, ctx, w, h, dpr;
+let frameTick = 0;                // throttles occasional layout reads
 let docH = 0;                     // full scrollable page height (world height)
 let depth = 0;                    // 0 surface → 1 sea floor
 let timeOfDay = "midday";
@@ -173,12 +174,14 @@ function populate() {
     const color = colors[Math.floor(Math.random() * colors.length)];
     let secondary = colors[Math.floor(Math.random() * colors.length)];
     if (secondary === color) secondary = "#ffffff";
+    const size = 9 + Math.random() * 14;
     fish.push({
       x: Math.random() * w,
       worldY,
       targetY: worldY,
       homeY: worldY,
-      size: 9 + Math.random() * 14,
+      size,
+      grad: countershadeGradient(color, size), // built once, not per frame
       speed: 14 + Math.random() * 18,        // px per SECOND
       speedJitter: 1,
       dir: Math.random() < 0.5 ? -1 : 1,
@@ -203,6 +206,7 @@ function populate() {
       x: (0.2 + Math.random() * 0.6) * w,
       worldY: docH - h * 0.28,
       size: 26,
+      grad: bodyGradient("#9d6bce", 26),
       phase: Math.random() * Math.PI * 2,
     });
   }
@@ -210,10 +214,12 @@ function populate() {
   // ── Anglerfish: the deepest, darkest band — lure always glowing ──
   anglers = [];
   for (let i = 0; i < 2; i++) {
+    const size = 18 + Math.random() * 10;
     anglers.push({
       x: Math.random() * w,
       worldY: docH - h * (0.35 + Math.random() * 0.55),
-      size: 18 + Math.random() * 10,
+      size,
+      grad: bodyGradient("#33445c", size),
       speed: 7 + Math.random() * 6,          // px/s — an ominous drift
       dir: i % 2 === 0 ? 1 : -1,
       phase: Math.random() * Math.PI * 2,
@@ -238,14 +244,18 @@ function populate() {
 
   // ── Crabs: on the sand, all hours ──
   crabs = [];
+  const crabColor = night ? "#b35c33" : "#d9764a";
   for (let i = 0; i < 3; i++) {
     const baseX = (0.12 + Math.random() * 0.76) * w;
+    const size = 12 + Math.random() * 7;
     crabs.push({
       x: baseX,
       baseX,
       patrol: 60 + Math.random() * 70,
       vx: (Math.random() < 0.5 ? -1 : 1) * (8 + Math.random() * 8),
-      size: 12 + Math.random() * 7,
+      size,
+      color: crabColor,
+      grad: bodyGradient(crabColor, size * 1.2),
       phase: Math.random() * Math.PI * 2,
     });
   }
@@ -296,13 +306,19 @@ function populate() {
     const blades = [];
     const bladeCount = 3 + Math.floor(Math.random() * 4);
     for (let b = 0; b < bladeCount; b++) {
+      const len = 34 + Math.random() * 52;
+      const raw = SEAWEED_COLORS[Math.floor(Math.random() * SEAWEED_COLORS.length)];
+      const color = night ? shade(raw, -60) : raw; // baked in — repopulates per band
+      const grad = ctx.createLinearGradient(0, 0, 0, -len);
+      grad.addColorStop(0, shade(color, -35));
+      grad.addColorStop(1, shade(color, 25));
       blades.push({
         off: (b - bladeCount / 2) * 7 + (Math.random() - 0.5) * 5,
-        len: 34 + Math.random() * 52,
+        len,
         lean: (Math.random() - 0.5) * 14,
         phase: Math.random() * Math.PI * 2,
         width: 2.5 + Math.random() * 1.8,
-        color: SEAWEED_COLORS[Math.floor(Math.random() * SEAWEED_COLORS.length)],
+        grad,
       });
     }
     seaweeds.push({ x, blades, front: Math.random() < 0.6 });
@@ -402,8 +418,11 @@ function drawFrame(t, dt = 0) {
 
   // Keep the world sized to the page (content/images can change height).
   // Rescale in place — a full repopulate would teleport every creature.
-  const liveDocH = document.documentElement.scrollHeight;
-  if (Math.abs(liveDocH - docH) > 8) rescaleWorld(w, h, liveDocH);
+  // Checked every 32 frames: scrollHeight reads can force layout work.
+  if ((frameTick++ & 31) === 0) {
+    const liveDocH = document.documentElement.scrollHeight;
+    if (Math.abs(liveDocH - docH) > 8) rescaleWorld(w, h, liveDocH);
+  }
 
   const scrollY = window.scrollY;
   const waterline = h * 0.82 - scrollY + 10;      // water surface on screen
@@ -436,12 +455,28 @@ function drawFrame(t, dt = 0) {
 // Color helpers (pseudo-3D shading)
 // ─────────────────────────────────────────────────────────────────────────
 
+/** Memoized — this runs hundreds of times per frame with repeating inputs. */
+const shadeCache = new Map();
 function shade(hex, amt) {
+  const key = hex + amt;
+  let v = shadeCache.get(key);
+  if (v) return v;
   const n = parseInt(hex.slice(1), 16);
   const r = clamp(((n >> 16) & 255) + amt, 0, 255);
   const g = clamp(((n >> 8) & 255) + amt, 0, 255);
   const b = clamp((n & 255) + amt, 0, 255);
-  return `rgb(${r},${g},${b})`;
+  v = `rgb(${r},${g},${b})`;
+  shadeCache.set(key, v);
+  return v;
+}
+
+/** Countershaded fish gradient (dark back → pale belly), in local coords. */
+function countershadeGradient(color, s) {
+  const g = ctx.createLinearGradient(0, -s * 0.5, 0, s * 0.5);
+  g.addColorStop(0, shade(color, -45));
+  g.addColorStop(0.45, color);
+  g.addColorStop(1, shade(color, 70));
+  return g;
 }
 
 function bodyGradient(color, size) {
@@ -511,24 +546,20 @@ function drawSeaweed(sw, t, floorScreen) {
   const baseY = duneY(d, sw.x, floorScreen) + 2;
   if (baseY > h + 60 || baseY < -80) return;
 
-  const night = timeOfDay === "night";
   ctx.lineCap = "round";
+  ctx.globalAlpha = sw.front ? 0.95 : 0.7;
   for (const b of sw.blades) {
     const sway = Math.sin(t / 1300 + b.phase) * 7 + b.lean;
-    const x0 = sw.x + b.off;
-    const color = night ? shade(b.color, -60) : b.color;
-
-    const g = ctx.createLinearGradient(x0, baseY, x0, baseY - b.len);
-    g.addColorStop(0, shade(color, -35));
-    g.addColorStop(1, shade(color, 25));
-    ctx.strokeStyle = g;
+    // Draw in local space so the gradient (cached at populate) lines up.
+    ctx.save();
+    ctx.translate(sw.x + b.off, baseY);
+    ctx.strokeStyle = b.grad;
     ctx.lineWidth = b.width;
-    ctx.globalAlpha = sw.front ? 0.95 : 0.7;
-
     ctx.beginPath();
-    ctx.moveTo(x0, baseY);
-    ctx.quadraticCurveTo(x0 + sway * 0.4, baseY - b.len * 0.55, x0 + sway, baseY - b.len);
+    ctx.moveTo(0, 0);
+    ctx.quadraticCurveTo(sway * 0.4, -b.len * 0.55, sway, -b.len);
     ctx.stroke();
+    ctx.restore();
   }
   ctx.globalAlpha = 1;
 }
@@ -747,11 +778,7 @@ function updateDrawFish(f, t, dt, scrollY, waterline, night) {
   ctx.fill();
 
   // body — countershaded like a real fish: dark back, pale belly
-  const cg = ctx.createLinearGradient(0, -s * 0.5, 0, s * 0.5);
-  cg.addColorStop(0, shade(f.color, -45));
-  cg.addColorStop(0.45, f.color);
-  cg.addColorStop(1, shade(f.color, 70));
-  ctx.fillStyle = cg;
+  ctx.fillStyle = f.grad; // cached at populate — no per-frame allocation
   bodyPath();
   ctx.fill();
 
@@ -993,7 +1020,7 @@ function updateDrawAngler(a, t, dt, scrollY, waterline) {
   ctx.globalAlpha = 0.95;
 
   // body — a dark, bulky presence
-  ctx.fillStyle = bodyGradient("#33445c", s);
+  ctx.fillStyle = a.grad;
   ctx.beginPath();
   ctx.ellipse(0, 0, s, s * 0.68, 0, 0, Math.PI * 2);
   ctx.fill();
@@ -1075,7 +1102,7 @@ function updateDrawOctopus(o, t, scrollY, waterline) {
   ctx.translate(o.x, y);
   ctx.globalAlpha = 0.92;
 
-  ctx.fillStyle = bodyGradient("#9d6bce", o.size);
+  ctx.fillStyle = o.grad;
   ctx.beginPath();
   ctx.ellipse(0, -o.size * 0.3, o.size * 0.75, o.size * 0.85, 0, 0, Math.PI * 2);
   ctx.fill();
@@ -1122,7 +1149,7 @@ function updateDrawCrab(c, t, dt, night, floorScreen) {
   if (y > h + 60 || y < -60) return;
 
   const legLift = Math.sin(t / 200 + c.phase) * 2.2;
-  const crabColor = night ? "#b35c33" : "#d9764a";
+  const crabColor = c.color; // set at populate (day/night variant)
 
   if (night) drawGlow(c.x, y, c.size * 2.6, "#fb923c", 0.35);
 
@@ -1147,7 +1174,7 @@ function updateDrawCrab(c, t, dt, night, floorScreen) {
     }
   }
 
-  ctx.fillStyle = bodyGradient(crabColor, c.size * 1.2);
+  ctx.fillStyle = c.grad;
   ctx.beginPath();
   ctx.ellipse(0, 0, c.size, c.size * 0.62, 0, 0, Math.PI * 2);
   ctx.fill();

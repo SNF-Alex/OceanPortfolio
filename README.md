@@ -75,10 +75,17 @@ python3 -m http.server 8000
 npx serve .
 ```
 
-Tailwind loads from its CDN (`https://cdn.tailwindcss.com`), so an internet
-connection is needed on first load. All custom styling lives in
-`css/styles.css`, so the site still renders acceptably if the CDN is
-unreachable.
+Tailwind is precompiled into `css/tailwind.css` (~10 KB) — no CDN, no
+internet needed, no runtime compile. If you add NEW Tailwind utility
+classes to `index.html` or the JS files, regenerate it:
+
+```bash
+npm install tailwindcss@3
+npx tailwindcss -o css/tailwind.css --minify \
+  --content "index.html,js/*.js"
+```
+
+All custom (non-Tailwind) styling lives in `css/styles.css`.
 
 ### Deploy
 

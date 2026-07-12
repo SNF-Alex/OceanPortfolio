@@ -11,8 +11,19 @@
   <link rel="apple-touch-icon" href="assets/iconified/apple-touch-icon-180x180.png" />
   <link rel="apple-touch-icon" sizes="152x152" href="assets/iconified/apple-touch-icon-152x152.png" />
   <link rel="apple-touch-icon" sizes="120x120" href="assets/iconified/apple-touch-icon-120x120.png" />
-  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Precompiled Tailwind (10 KB) — replaces the ~112 KB runtime CDN build.
+       Regenerate with: npx tailwindcss -i input.css -o css/tailwind.css --minify
+       (content: index.html + js/*.js) after adding new utility classes. -->
+  <link rel="stylesheet" href="css/tailwind.css" />
   <link rel="stylesheet" href="css/styles.css" />
+  <!-- Warm up the module graph + data so nothing loads in a waterfall -->
+  <link rel="modulepreload" href="js/main.js" />
+  <link rel="modulepreload" href="js/timeOfDay.js" />
+  <link rel="modulepreload" href="js/lightingEngine.js" />
+  <link rel="modulepreload" href="js/weatherSystem.js" />
+  <link rel="modulepreload" href="js/canvasEngine.js" />
+  <link rel="modulepreload" href="js/animations.js" />
+  <link rel="preload" href="data/portfolio.json" as="fetch" crossorigin="anonymous" />
   <script type="module" src="js/main.js"></script>
 </head>
 <body class="antialiased">
